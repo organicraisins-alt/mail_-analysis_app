@@ -38,6 +38,10 @@ const elements = {
   timeSaved: document.querySelector("#timeSaved"),
   toast: document.querySelector("#toast"),
   syncAll: document.querySelector("#syncAll"),
+  connectGmail: document.querySelector("#connectGmail"),
+  syncGmail: document.querySelector("#syncGmail"),
+  gmailStatus: document.querySelector("#gmailStatus"),
+  gmailRedirectUri: document.querySelector("#gmailRedirectUri"),
   addDemoAccount: document.querySelector("#addDemoAccount"),
   resetData: document.querySelector("#resetData"),
   openedWeight: document.querySelector("#openedWeight"),
@@ -253,6 +257,91 @@ function showToast(message) {
   window.setTimeout(() => elements.toast.classList.remove("show"), 1800);
 }
 
+async function refreshGmailStatus() {
+  try {
+    const status = await fetchJson("/api/gmail/status");
+    elements.connectGmail.disabled = !status.configured;
+    elements.syncGmail.disabled = !status.connected;
+    elements.gmailRedirectUri.textContent = `Redirect URI: ${status.redirectUri}`;
+
+    if (!status.configured) {
+      elements.gmailStatus.textContent = ".env の GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET が未設定です。";
+      return;
+    }
+
+    elements.gmailStatus.textContent = status.connected
+      ? "Gmail接続済みです。本文は取得せず、指定ヘッダーだけ取得します。"
+      : "Gmail未接続です。Gmail接続ボタンからOAuth認証してください。";
+  } catch {
+    elements.connectGmail.disabled = true;
+    elements.syncGmail.disabled = true;
+    elements.gmailStatus.textContent = "Gmail連携サーバーが起動していません。npm run dev:gmail で起動してください。";
+    elements.gmailRedirectUri.textContent = "";
+  }
+}
+
+async function importGmailSubscriptions() {
+  elements.syncGmail.disabled = true;
+  showToast("Gmailヘッダーを取得しています");
+
+  try {
+    const result = await fetchJson("/api/gmail/subscriptions");
+    const accountId = `gmail-real-${result.email}`;
+    upsertGmailAccount(accountId, result.email);
+
+    const imported = result.subscriptions.map((item) => ({
+      ...item,
+      accountId,
+      id: `${item.id}-${item.senderDomain}`,
+      unsubscribedAt: null,
+      kept: false,
+    }));
+
+    state.subscriptions = [
+      ...state.subscriptions.filter((item) => item.accountId !== accountId),
+      ...imported,
+    ];
+    showToast(`${result.scanned}件を確認し、購読候補${result.count}件を反映しました`);
+    render();
+  } catch (error) {
+    showToast(error.message || "Gmail取得に失敗しました");
+  } finally {
+    await refreshGmailStatus();
+  }
+}
+
+function upsertGmailAccount(accountId, email) {
+  const now = new Date().toLocaleString("ja-JP", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const existing = state.accounts.find((account) => account.id === accountId);
+  if (existing) {
+    existing.status = "connected";
+    existing.syncedAt = now;
+    return;
+  }
+
+  state.accounts.push({
+    id: accountId,
+    provider: "Gmail",
+    email,
+    status: "connected",
+    syncedAt: now,
+  });
+}
+
+async function fetchJson(url) {
+  const response = await fetch(url);
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || "Request failed");
+  }
+  return data;
+}
+
 elements.subscriptionRows.addEventListener("click", (event) => {
   const button = event.target.closest("button[data-action]");
   if (!button) return;
@@ -301,6 +390,14 @@ elements.syncAll.addEventListener("click", () => {
   render();
 });
 
+elements.connectGmail.addEventListener("click", () => {
+  window.location.href = "/auth/google";
+});
+
+elements.syncGmail.addEventListener("click", () => {
+  importGmailSubscriptions();
+});
+
 elements.addDemoAccount.addEventListener("click", () => {
   if (state.accounts.length >= 10) {
     showToast("接続可能なアカウント数は最大10件です");
@@ -327,3 +424,4 @@ elements.resetData.addEventListener("click", () => {
 });
 
 render();
+refreshGmailStatus();

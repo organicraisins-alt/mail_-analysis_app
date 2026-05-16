@@ -4,6 +4,8 @@ dist/
 build/
 .env
 .env.*
+!.env.example
 *.log
 DerivedData/
 simulator-*.png
+.local/

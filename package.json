@@ -1,0 +1,9 @@
+{
+  "name": "mail-subscription-manager",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev:gmail": "node server.mjs"
+  }
+}

@@ -31,13 +31,48 @@ Xcodeで開いたら:
 
 `index.html` をブラウザで開いてください。
 
-ローカルサーバーで確認する場合:
+デモだけ確認する場合:
 
 ```bash
 python3 -m http.server 5173
 ```
 
 その後、`http://localhost:5173` を開きます。
+
+## 実Gmailでテストする
+
+Gmail連携はローカルOAuthサーバーで動きます。本文は取得せず、Gmail APIの `format=metadata` で `From` / `Subject` / `Date` / `List-Unsubscribe` ヘッダーだけ取得します。
+
+Google Cloudで次を準備してください。
+
+1. Google Cloud Consoleでプロジェクトを作成
+2. Gmail APIを有効化
+3. OAuth同意画面を作成し、自分のGmailをテストユーザーに追加
+4. OAuthクライアントIDを「ウェブアプリケーション」で作成
+5. 承認済みリダイレクトURIに `http://127.0.0.1:5173/oauth2callback` を追加
+
+その後、`.env.example` を `.env` にコピーして値を入れます。
+
+```bash
+cp .env.example .env
+```
+
+```text
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+GOOGLE_REDIRECT_URI=http://127.0.0.1:5173/oauth2callback
+PORT=5173
+```
+
+起動:
+
+```bash
+npm run dev:gmail
+```
+
+ブラウザで `http://127.0.0.1:5173/` を開き、`Gmail接続` → Google認証 → `Gmail取得` の順に操作します。
+
+OAuthトークンは `.local/google-token.json` に保存され、GitHubにはpushされません。
 
 ## 資材構成
 

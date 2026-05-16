@@ -107,6 +107,13 @@ input {
   gap: 16px;
 }
 
+.topbar-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .topbar h1,
 .section h2 {
   margin: 0;
@@ -182,6 +189,28 @@ input {
 
 .section {
   padding: 22px;
+}
+
+.gmail-panel {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-start;
+}
+
+.gmail-panel p {
+  color: var(--muted);
+  margin: 0;
+}
+
+.gmail-panel code {
+  max-width: 460px;
+  overflow-wrap: anywhere;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f9fafb;
+  color: #344054;
+  padding: 10px 12px;
 }
 
 .account-grid {
@@ -421,8 +450,13 @@ tr:last-child td {
   }
 
   .button,
+  .topbar-actions,
   .controls,
   .controls select {
     width: 100%;
+  }
+
+  .gmail-panel {
+    flex-direction: column;
   }
 }

@@ -32,8 +32,21 @@
             <p class="eyebrow">仕様書 ver 1.0 から作成</p>
             <h1>購読メールを横断管理</h1>
           </div>
-          <button id="syncAll" class="button primary" type="button">全アカウント同期</button>
+          <div class="topbar-actions">
+            <button id="connectGmail" class="button" type="button">Gmail接続</button>
+            <button id="syncGmail" class="button" type="button">Gmail取得</button>
+            <button id="syncAll" class="button primary" type="button">全アカウント同期</button>
+          </div>
         </header>
+
+        <section id="gmailPanel" class="section gmail-panel">
+          <div>
+            <p class="eyebrow">Gmail local test</p>
+            <h2>実Gmailテスト</h2>
+            <p id="gmailStatus">ローカルOAuthサーバーの状態を確認中です。</p>
+          </div>
+          <code id="gmailRedirectUri"></code>
+        </section>
 
         <section id="dashboard" class="summary-grid" aria-label="サマリー">
           <article class="metric">
