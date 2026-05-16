@@ -4,12 +4,30 @@
 
 ## 現在の状態
 
-- 依存関係なしの静的Webアプリ
+- SwiftUIのiPhoneアプリ
+- 依存関係なしの静的Webアプリも残しています
 - デモデータでアカウント管理、購読一覧、解除、保持、分析を確認可能
-- データはブラウザの `localStorage` に保存
+- iPhoneアプリのデータは `UserDefaults` に保存
+- Web版のデータはブラウザの `localStorage` に保存
 - 外部AIは未使用
 
-## 使い方
+## iPhoneアプリの使い方
+
+XcodeをインストールしたMacで、次のファイルを開いてください。
+
+```text
+ios/MailSubscriptionManager.xcodeproj
+```
+
+Xcodeで開いたら:
+
+1. 上部の実行先で iPhone シミュレータを選択
+2. `MailSubscriptionManager` スキームを選択
+3. Run ボタンで起動
+
+この環境では現在 `/Applications/Xcode.app` がなく、Command Line Toolsのみ有効です。シミュレータで実際に動かすにはApp StoreからXcodeをインストールしてください。
+
+## Web版の使い方
 
 `index.html` をブラウザで開いてください。
 
@@ -26,6 +44,9 @@ python3 -m http.server 5173
 ```text
 .
 ├── index.html
+├── ios/
+│   ├── MailSubscriptionManager.xcodeproj
+│   └── MailSubscriptionManager/
 ├── src/
 │   ├── app.js
 │   └── styles.css
@@ -46,7 +67,7 @@ python3 -m http.server 5173
 ## ロードマップ
 
 - Phase 1: 静的MVP、ルールベーススコア、デモ操作
-- Phase 2: Next.js + TypeScript 化、API層追加
+- Phase 2: SwiftUI版の操作性改善、ローカル保存、解除取り消し
 - Phase 3: Gmail OAuth、Gmail API 同期
 - Phase 4: Outlook / iCloud / Yahoo! Mail 対応
-- Phase 5: PostgreSQL、暗号化トークン保存、運用設計
+- Phase 5: サーバー連携、暗号化トークン保存、運用設計
