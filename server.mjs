@@ -298,32 +298,29 @@ function saveToken(token) {
 async function getGmailSubscriptions() {
   const accessToken = await getAccessToken();
   const profile = await gmailFetch(accessToken, "https://gmail.googleapis.com/gmail/v1/users/me/profile");
-  const listed = await gmailFetch(
-    accessToken,
-    "https://gmail.googleapis.com/gmail/v1/users/me/messages?" +
-      new URLSearchParams({
-        maxResults: "50",
-        q: "newer_than:365d",
-      }).toString(),
-  );
-
-  const messages = listed.messages || [];
-  const metadata = await Promise.all(
-    messages.map((message) =>
-      gmailFetch(
-        accessToken,
-        `https://gmail.googleapis.com/gmail/v1/users/me/messages/${message.id}?` +
-          new URLSearchParams({
-            format: "metadata",
-            metadataHeaders: ["From", "Subject", "Date", "List-Unsubscribe"],
-          }).toString(),
-      ),
+  const messages = await listCandidateMessages(accessToken, 500);
+  const metadata = await mapWithConcurrency(messages, 4, (message) =>
+    gmailFetch(
+      accessToken,
+      `https://gmail.googleapis.com/gmail/v1/users/me/messages/${message.id}?` +
+        new URLSearchParams({
+          format: "metadata",
+          metadataHeaders: [
+            "From",
+            "Subject",
+            "Date",
+            "List-Unsubscribe",
+            "List-ID",
+            "Precedence",
+            "Auto-Submitted",
+          ],
+        }).toString(),
     ),
   );
 
   const subscriptions = metadata
     .map((message) => normalizeGmailMessage(message, profile.emailAddress))
-    .filter((message) => message.unsubscribeHeader);
+    .filter((message) => message.isSubscriptionCandidate);
 
   const grouped = groupByDomain(subscriptions);
   return {
@@ -332,6 +329,58 @@ async function getGmailSubscriptions() {
     count: grouped.length,
     subscriptions: grouped,
   };
+}
+
+async function listCandidateMessages(accessToken, limit) {
+  const queries = [
+    "category:promotions newer_than:365d -in:trash",
+    "category:updates newer_than:365d -in:trash",
+    "category:social newer_than:365d -in:trash",
+    "unsubscribe newer_than:365d -in:trash",
+    "from:(noreply OR no-reply OR notification) newer_than:365d -in:trash",
+  ];
+  const byId = new Map();
+
+  for (const query of queries) {
+    const messages = await listMessagesByQuery(accessToken, query, Math.ceil(limit / queries.length));
+    for (const message of messages) {
+      byId.set(message.id, message);
+    }
+  }
+
+  return [...byId.values()].slice(0, limit);
+}
+
+async function listMessagesByQuery(accessToken, query, limit) {
+  const messages = [];
+  let pageToken = "";
+
+  while (messages.length < limit) {
+    const params = new URLSearchParams({
+      maxResults: String(Math.min(100, limit - messages.length)),
+      q: query,
+    });
+    if (pageToken) params.set("pageToken", pageToken);
+
+    const listed = await gmailFetch(
+      accessToken,
+      `https://gmail.googleapis.com/gmail/v1/users/me/messages?${params.toString()}`,
+    );
+    messages.push(...(listed.messages || []));
+    if (!listed.nextPageToken) break;
+    pageToken = listed.nextPageToken;
+  }
+
+  return messages;
+}
+
+async function mapWithConcurrency(items, limit, mapper) {
+  const results = [];
+  for (let index = 0; index < items.length; index += limit) {
+    const chunk = items.slice(index, index + limit);
+    results.push(...(await Promise.all(chunk.map(mapper))));
+  }
+  return results;
 }
 
 async function gmailFetch(accessToken, url, options = {}) {
@@ -366,6 +415,20 @@ function normalizeGmailMessage(message, emailAddress) {
   const from = parseFrom(headers.from || "");
   const date = headers.date ? new Date(headers.date) : new Date();
   const lastOpenedDays = Math.max(0, Math.round((Date.now() - date.getTime()) / 86_400_000));
+  const listId = headers["list-id"] || "";
+  const precedence = headers.precedence || "";
+  const autoSubmitted = headers["auto-submitted"] || "";
+  const unsubscribeHeader = headers["list-unsubscribe"] || "";
+  const labelIds = message.labelIds || [];
+  const isSubscriptionCandidate = Boolean(
+    unsubscribeHeader ||
+      listId ||
+      labelIds.includes("CATEGORY_PROMOTIONS") ||
+      labelIds.includes("CATEGORY_UPDATES") ||
+      labelIds.includes("CATEGORY_SOCIAL") ||
+      /bulk|list/i.test(precedence) ||
+      (/auto/i.test(autoSubmitted) && !/reply/i.test(autoSubmitted)),
+  );
 
   return {
     id: `gmail-${message.id}`,
@@ -374,10 +437,13 @@ function normalizeGmailMessage(message, emailAddress) {
     senderName: from.name || from.email || from.domain,
     senderDomain: from.domain || "unknown",
     subject: headers.subject || "",
-    category: inferCategory(headers.subject || "", from.domain || ""),
+    category: inferCategory(headers.subject || "", from.domain || "", labelIds),
     lastOpenedDays,
     receiveCount30d: 1,
-    unsubscribeHeader: headers["list-unsubscribe"] || "",
+    unsubscribeHeader,
+    listId,
+    labelIds,
+    isSubscriptionCandidate,
     unsubscribedAt: null,
     kept: false,
     source: "gmail",
@@ -396,8 +462,10 @@ function parseFrom(value) {
   return { name, email, domain };
 }
 
-function inferCategory(subject, domain) {
+function inferCategory(subject, domain, labelIds = []) {
   const text = `${subject} ${domain}`.toLowerCase();
+  if (labelIds.includes("CATEGORY_PROMOTIONS")) return "広告・セール";
+  if (labelIds.includes("CATEGORY_SOCIAL")) return "SNS通知";
   if (/invoice|receipt|billing|領収|請求/.test(text)) return "請求・領収書";
   if (/sale|coupon|deal|discount|セール|割引|クーポン/.test(text)) return "広告・セール";
   if (/newsletter|digest|weekly|ニュース/.test(text)) return "ニュースレター";

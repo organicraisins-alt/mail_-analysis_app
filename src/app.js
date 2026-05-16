@@ -428,6 +428,8 @@ async function importGmailSubscriptions() {
       ...state.subscriptions.filter((item) => item.accountId !== accountId),
       ...imported,
     ];
+    elements.gmailStatus.textContent =
+      `Gmail取得完了: ${result.scanned}件をスキャンし、購読候補${result.count}件を反映しました。`;
     showToast(`${result.scanned}件を確認し、購読候補${result.count}件を反映しました`);
     render();
   } catch (error) {
