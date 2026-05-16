@@ -176,6 +176,7 @@ async function blockAndTrashGmail(request) {
       senderDomain: domain,
       filterCreated: false,
       trashedCount: 0,
+      trashMethod: "none",
     };
 
     if (shouldBlockFuture) {
@@ -184,7 +185,10 @@ async function blockAndTrashGmail(request) {
     }
 
     if (shouldTrashExisting) {
-      result.trashedCount = await trashExistingMessages(accessToken, domain);
+      const messageIds = Array.isArray(target.messageIds) ? target.messageIds : [];
+      const trashResult = await trashExistingMessages(accessToken, domain, messageIds);
+      result.trashedCount = trashResult.count;
+      result.trashMethod = trashResult.method;
     }
 
     results.push(result);
@@ -202,33 +206,46 @@ async function createTrashFilter(accessToken, senderDomain) {
       },
       action: {
         addLabelIds: ["TRASH"],
-        removeLabelIds: ["INBOX"],
+        removeLabelIds: ["INBOX", "UNREAD"],
       },
     }),
   });
 }
 
-async function trashExistingMessages(accessToken, senderDomain) {
+async function trashExistingMessages(accessToken, senderDomain, messageIds = []) {
+  const directIds = [...new Set(messageIds.filter(Boolean))];
+  if (directIds.length) {
+    let count = 0;
+    for (const id of directIds) {
+      await trashMessage(accessToken, id);
+      count += 1;
+    }
+    return { count, method: "messageIds" };
+  }
+
   const listed = await gmailFetch(
     accessToken,
     "https://gmail.googleapis.com/gmail/v1/users/me/messages?" +
       new URLSearchParams({
         maxResults: "500",
-        q: `from:(${senderDomain}) newer_than:365d -in:trash`,
+        q: `from:${senderDomain} newer_than:365d -in:trash`,
       }).toString(),
   );
   const ids = (listed.messages || []).map((message) => message.id);
-  if (!ids.length) return 0;
+  if (!ids.length) return { count: 0, method: "search" };
 
-  await gmailFetch(accessToken, "https://gmail.googleapis.com/gmail/v1/users/me/messages/batchModify", {
+  let count = 0;
+  for (const id of ids) {
+    await trashMessage(accessToken, id);
+    count += 1;
+  }
+  return { count, method: "search" };
+}
+
+async function trashMessage(accessToken, messageId) {
+  return gmailFetch(accessToken, `https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}/trash`, {
     method: "POST",
-    body: JSON.stringify({
-      ids,
-      addLabelIds: ["TRASH"],
-      removeLabelIds: ["INBOX", "UNREAD"],
-    }),
   });
-  return ids.length;
 }
 
 async function getAccessToken() {
@@ -352,6 +369,7 @@ function normalizeGmailMessage(message, emailAddress) {
 
   return {
     id: `gmail-${message.id}`,
+    messageIds: [message.id],
     accountId: `gmail-real-${emailAddress}`,
     senderName: from.name || from.email || from.domain,
     senderDomain: from.domain || "unknown",
@@ -397,6 +415,7 @@ function groupByDomain(items) {
     }
 
     current.receiveCount30d += 1;
+    current.messageIds = [...new Set([...(current.messageIds || []), ...(item.messageIds || [])])];
     current.lastOpenedDays = Math.max(current.lastOpenedDays, item.lastOpenedDays);
     if (current.category === "サービス更新" && item.category !== "サービス更新") {
       current.category = item.category;

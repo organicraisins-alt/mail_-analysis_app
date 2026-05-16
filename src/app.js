@@ -322,6 +322,7 @@ async function confirmUnsubscribeSelection() {
     .map((item) => ({
       senderDomain: item.senderDomain,
       senderName: item.senderName,
+      messageIds: item.messageIds || [],
     }));
 
   if (gmailTargets.length) {
@@ -334,7 +335,14 @@ async function confirmUnsubscribeSelection() {
         trashExisting: elements.trashExistingMail.checked,
       });
       const trashedCount = result.results.reduce((sum, item) => sum + item.trashedCount, 0);
+      const details = result.results.map((item) => `${item.senderDomain}: ${item.trashedCount}件`).join(" / ");
       showToast(`Gmail処理完了: フィルタ${result.results.length}件 / ゴミ箱移動${trashedCount}件`);
+      console.info("Gmail block/delete result", result);
+      if (elements.trashExistingMail.checked && trashedCount === 0) {
+        showToast("Gmail処理は完了しましたが、移動対象の既存メールは0件でした");
+      } else if (details) {
+        showToast(`Gmailゴミ箱移動: ${details}`);
+      }
     } catch (error) {
       elements.confirmUnsubscribe.disabled = false;
       showToast(error.message || "Gmail処理に失敗しました。再接続が必要な場合があります。");
@@ -475,7 +483,16 @@ async function postJson(url, payload) {
 }
 
 function dedupeTargets(targets) {
-  return [...new Map(targets.map((target) => [target.senderDomain, target])).values()];
+  const map = new Map();
+  for (const target of targets) {
+    const current = map.get(target.senderDomain);
+    if (!current) {
+      map.set(target.senderDomain, { ...target, messageIds: target.messageIds || [] });
+      continue;
+    }
+    current.messageIds = [...new Set([...(current.messageIds || []), ...(target.messageIds || [])])];
+  }
+  return [...map.values()];
 }
 
 elements.subscriptionRows.addEventListener("click", (event) => {
