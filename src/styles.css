@@ -335,6 +335,134 @@ tr:last-child td {
   color: var(--red);
 }
 
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.46);
+}
+
+.modal-backdrop[hidden] {
+  display: none;
+}
+
+.modal {
+  width: min(720px, 100%);
+  max-height: min(760px, calc(100vh - 48px));
+  overflow: auto;
+  background: var(--panel);
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.28);
+  padding: 22px;
+}
+
+.modal-header,
+.modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.modal-header h2 {
+  margin: 0;
+}
+
+.icon-button {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.modal-summary {
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.target-list {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.execution-options {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f9fafb;
+  padding: 12px;
+  margin-top: 14px;
+}
+
+.execution-options label {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  color: #344054;
+  line-height: 1.5;
+}
+
+.target-option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: #fbfcfe;
+}
+
+.target-option input {
+  margin-top: 5px;
+}
+
+.target-option strong,
+.target-option span,
+.target-option small {
+  display: block;
+}
+
+.target-option span {
+  color: var(--muted);
+  margin-top: 3px;
+}
+
+.target-option small {
+  color: var(--muted);
+  margin-top: 8px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.modal-note {
+  border: 1px solid #fed7aa;
+  border-radius: 8px;
+  background: #fff7ed;
+  color: #9a3412;
+  line-height: 1.6;
+  padding: 12px;
+  margin: 12px 0 18px;
+}
+
+.danger-button {
+  background: var(--red);
+  border-color: var(--red);
+}
+
 .report-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 260px;
@@ -437,7 +565,9 @@ tr:last-child td {
   }
 
   .topbar,
-  .section-heading {
+  .section-heading,
+  .modal-header,
+  .modal-actions {
     align-items: flex-start;
     flex-direction: column;
   }

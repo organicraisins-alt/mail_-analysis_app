@@ -11,7 +11,10 @@ const statePath = join(localDir, "oauth-state.txt");
 const env = loadEnv();
 const port = Number(env.PORT || 5173);
 const redirectUri = env.GOOGLE_REDIRECT_URI || `http://127.0.0.1:${port}/oauth2callback`;
-const gmailScope = "https://www.googleapis.com/auth/gmail.readonly";
+const gmailScopes = [
+  "https://www.googleapis.com/auth/gmail.modify",
+  "https://www.googleapis.com/auth/gmail.settings.basic",
+];
 
 mkdirSync(localDir, { recursive: true });
 
@@ -33,6 +36,10 @@ const server = createServer(async (request, response) => {
 
     if (url.pathname === "/api/gmail/subscriptions") {
       return json(response, await getGmailSubscriptions());
+    }
+
+    if (url.pathname === "/api/gmail/block-delete" && request.method === "POST") {
+      return json(response, await blockAndTrashGmail(request));
     }
 
     return serveStatic(url.pathname, response);
@@ -71,12 +78,22 @@ function requireGoogleCredentials() {
 }
 
 function getStatus() {
+  const token = readSavedToken();
+  const grantedScopes = token?.scope ? token.scope.split(/\s+/) : [];
+  const hasRequiredScopes = gmailScopes.every((scope) => grantedScopes.includes(scope));
+
   return {
     configured: Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
-    connected: existsSync(tokenPath),
+    connected: Boolean(token && hasRequiredScopes),
+    needsReconnect: Boolean(token && !hasRequiredScopes),
     redirectUri,
-    scope: gmailScope,
+    scopes: gmailScopes,
   };
+}
+
+function readSavedToken() {
+  if (!existsSync(tokenPath)) return null;
+  return JSON.parse(readFileSync(tokenPath, "utf8"));
 }
 
 function buildGoogleAuthUrl() {
@@ -88,7 +105,7 @@ function buildGoogleAuthUrl() {
     client_id: env.GOOGLE_CLIENT_ID,
     redirect_uri: redirectUri,
     response_type: "code",
-    scope: gmailScope,
+    scope: gmailScopes.join(" "),
     access_type: "offline",
     prompt: "consent",
     state,
@@ -136,6 +153,82 @@ async function exchangeCodeForToken(code) {
     ...data,
     obtained_at: Date.now(),
   };
+}
+
+async function blockAndTrashGmail(request) {
+  const body = await readJsonBody(request);
+  const targets = Array.isArray(body.targets) ? body.targets : [];
+  const shouldBlockFuture = body.blockFuture !== false;
+  const shouldTrashExisting = body.trashExisting !== false;
+
+  if (!targets.length) {
+    throw new Error("Gmailで処理する対象がありません。");
+  }
+
+  const accessToken = await getAccessToken();
+  const results = [];
+
+  for (const target of targets) {
+    const domain = String(target.senderDomain || "").trim().toLowerCase();
+    if (!domain || domain === "unknown") continue;
+
+    const result = {
+      senderDomain: domain,
+      filterCreated: false,
+      trashedCount: 0,
+    };
+
+    if (shouldBlockFuture) {
+      await createTrashFilter(accessToken, domain);
+      result.filterCreated = true;
+    }
+
+    if (shouldTrashExisting) {
+      result.trashedCount = await trashExistingMessages(accessToken, domain);
+    }
+
+    results.push(result);
+  }
+
+  return { results };
+}
+
+async function createTrashFilter(accessToken, senderDomain) {
+  return gmailFetch(accessToken, "https://gmail.googleapis.com/gmail/v1/users/me/settings/filters", {
+    method: "POST",
+    body: JSON.stringify({
+      criteria: {
+        from: senderDomain,
+      },
+      action: {
+        addLabelIds: ["TRASH"],
+        removeLabelIds: ["INBOX"],
+      },
+    }),
+  });
+}
+
+async function trashExistingMessages(accessToken, senderDomain) {
+  const listed = await gmailFetch(
+    accessToken,
+    "https://gmail.googleapis.com/gmail/v1/users/me/messages?" +
+      new URLSearchParams({
+        maxResults: "500",
+        q: `from:(${senderDomain}) newer_than:365d -in:trash`,
+      }).toString(),
+  );
+  const ids = (listed.messages || []).map((message) => message.id);
+  if (!ids.length) return 0;
+
+  await gmailFetch(accessToken, "https://gmail.googleapis.com/gmail/v1/users/me/messages/batchModify", {
+    method: "POST",
+    body: JSON.stringify({
+      ids,
+      addLabelIds: ["TRASH"],
+      removeLabelIds: ["INBOX", "UNREAD"],
+    }),
+  });
+  return ids.length;
 }
 
 async function getAccessToken() {
@@ -224,15 +317,29 @@ async function getGmailSubscriptions() {
   };
 }
 
-async function gmailFetch(accessToken, url) {
+async function gmailFetch(accessToken, url, options = {}) {
   const response = await fetch(url, {
-    headers: { Authorization: `Bearer ${accessToken}` },
+    method: options.method || "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      ...(options.body ? { "Content-Type": "application/json" } : {}),
+    },
+    body: options.body,
   });
   const data = await response.json();
   if (!response.ok) {
     throw new Error(data.error?.message || "Gmail API request failed");
   }
   return data;
+}
+
+async function readJsonBody(request) {
+  const chunks = [];
+  for await (const chunk of request) {
+    chunks.push(chunk);
+  }
+  if (!chunks.length) return {};
+  return JSON.parse(Buffer.concat(chunks).toString("utf8"));
 }
 
 function normalizeGmailMessage(message, emailAddress) {

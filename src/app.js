@@ -22,6 +22,7 @@ const defaultState = {
 };
 
 let state = loadState();
+let pendingUnsubscribeIds = [];
 
 const elements = {
   accountCount: document.querySelector("#accountCount"),
@@ -47,6 +48,14 @@ const elements = {
   openedWeight: document.querySelector("#openedWeight"),
   categoryWeight: document.querySelector("#categoryWeight"),
   frequencyWeight: document.querySelector("#frequencyWeight"),
+  unsubscribeDialog: document.querySelector("#unsubscribeDialog"),
+  unsubscribeDialogSummary: document.querySelector("#unsubscribeDialogSummary"),
+  unsubscribeTargets: document.querySelector("#unsubscribeTargets"),
+  closeUnsubscribeDialog: document.querySelector("#closeUnsubscribeDialog"),
+  cancelUnsubscribe: document.querySelector("#cancelUnsubscribe"),
+  confirmUnsubscribe: document.querySelector("#confirmUnsubscribe"),
+  blockFutureMail: document.querySelector("#blockFutureMail"),
+  trashExistingMail: document.querySelector("#trashExistingMail"),
 };
 
 function loadState() {
@@ -257,6 +266,111 @@ function showToast(message) {
   window.setTimeout(() => elements.toast.classList.remove("show"), 1800);
 }
 
+function openUnsubscribeDialog(subscription) {
+  const account = accountFor(subscription);
+  const related = state.subscriptions
+    .filter((item) => !item.unsubscribedAt)
+    .filter((item) => item.senderDomain === subscription.senderDomain);
+  pendingUnsubscribeIds = related.map((item) => item.id);
+
+  elements.unsubscribeDialogSummary.textContent =
+    `${subscription.senderName} (${subscription.senderDomain}) の購読解除候補です。` +
+    `対象アカウントやカテゴリを確認し、解除対象外にしたいものはチェックを外してください。`;
+  elements.blockFutureMail.checked = true;
+  elements.trashExistingMail.checked = true;
+
+  elements.unsubscribeTargets.innerHTML = related
+    .map((item) => {
+      const itemAccount = accountFor(item);
+      const subject = item.subject ? `最新件名: ${escapeHtml(item.subject)}` : "件名情報なし";
+      const unsubscribeHeader = item.unsubscribeHeader
+        ? `List-Unsubscribe: ${escapeHtml(item.unsubscribeHeader)}`
+        : "List-Unsubscribe: デモまたは未取得";
+
+      return `
+        <label class="target-option">
+          <input type="checkbox" value="${item.id}" checked />
+          <span>
+            <strong>${escapeHtml(item.senderName)}</strong>
+            <span>${escapeHtml(item.senderDomain)} / ${escapeHtml(itemAccount?.email ?? account?.email ?? "不明")} / ${escapeHtml(item.category)}</span>
+            <small>${subject}<br>${unsubscribeHeader}</small>
+          </span>
+        </label>
+      `;
+    })
+    .join("");
+
+  elements.unsubscribeDialog.hidden = false;
+}
+
+function closeUnsubscribeDialog() {
+  elements.unsubscribeDialog.hidden = true;
+  pendingUnsubscribeIds = [];
+}
+
+async function confirmUnsubscribeSelection() {
+  const checkedIds = [...elements.unsubscribeTargets.querySelectorAll("input:checked")].map((input) => input.value);
+  const now = new Date().toISOString();
+  let unsubscribedCount = 0;
+  let keptCount = 0;
+  const selectedSubscriptions = pendingUnsubscribeIds
+    .map((id) => state.subscriptions.find((item) => item.id === id))
+    .filter(Boolean)
+    .filter((item) => checkedIds.includes(item.id));
+  const gmailTargets = selectedSubscriptions
+    .filter((item) => item.source === "gmail")
+    .map((item) => ({
+      senderDomain: item.senderDomain,
+      senderName: item.senderName,
+    }));
+
+  if (gmailTargets.length) {
+    elements.confirmUnsubscribe.disabled = true;
+    showToast("Gmailフィルタとゴミ箱移動を実行しています");
+    try {
+      const result = await postJson("/api/gmail/block-delete", {
+        targets: dedupeTargets(gmailTargets),
+        blockFuture: elements.blockFutureMail.checked,
+        trashExisting: elements.trashExistingMail.checked,
+      });
+      const trashedCount = result.results.reduce((sum, item) => sum + item.trashedCount, 0);
+      showToast(`Gmail処理完了: フィルタ${result.results.length}件 / ゴミ箱移動${trashedCount}件`);
+    } catch (error) {
+      elements.confirmUnsubscribe.disabled = false;
+      showToast(error.message || "Gmail処理に失敗しました。再接続が必要な場合があります。");
+      return;
+    }
+  }
+
+  for (const id of pendingUnsubscribeIds) {
+    const subscription = state.subscriptions.find((item) => item.id === id);
+    if (!subscription) continue;
+
+    if (checkedIds.includes(id)) {
+      subscription.unsubscribedAt = now;
+      subscription.kept = false;
+      unsubscribedCount += 1;
+    } else {
+      subscription.kept = true;
+      keptCount += 1;
+    }
+  }
+
+  closeUnsubscribeDialog();
+  elements.confirmUnsubscribe.disabled = false;
+  showToast(`解除済み ${unsubscribedCount}件 / 対象外 ${keptCount}件として保存しました`);
+  render();
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
 async function refreshGmailStatus() {
   try {
     const status = await fetchJson("/api/gmail/status");
@@ -266,6 +380,11 @@ async function refreshGmailStatus() {
 
     if (!status.configured) {
       elements.gmailStatus.textContent = ".env の GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET が未設定です。";
+      return;
+    }
+
+    if (status.needsReconnect) {
+      elements.gmailStatus.textContent = "Gmail権限が古い状態です。ブロック/ゴミ箱移動のため、Gmail接続をやり直してください。";
       return;
     }
 
@@ -342,6 +461,23 @@ async function fetchJson(url) {
   return data;
 }
 
+async function postJson(url, payload) {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || "Request failed");
+  }
+  return data;
+}
+
+function dedupeTargets(targets) {
+  return [...new Map(targets.map((target) => [target.senderDomain, target])).values()];
+}
+
 elements.subscriptionRows.addEventListener("click", (event) => {
   const button = event.target.closest("button[data-action]");
   if (!button) return;
@@ -350,9 +486,8 @@ elements.subscriptionRows.addEventListener("click", (event) => {
   if (!subscription) return;
 
   if (button.dataset.action === "unsubscribe") {
-    subscription.unsubscribedAt = new Date().toISOString();
-    subscription.kept = false;
-    showToast(`${subscription.senderName} を解除済みにしました`);
+    openUnsubscribeDialog(subscription);
+    return;
   }
 
   if (button.dataset.action === "keep") {
@@ -362,6 +497,15 @@ elements.subscriptionRows.addEventListener("click", (event) => {
 
   render();
 });
+
+elements.closeUnsubscribeDialog.addEventListener("click", closeUnsubscribeDialog);
+elements.cancelUnsubscribe.addEventListener("click", closeUnsubscribeDialog);
+elements.unsubscribeDialog.addEventListener("click", (event) => {
+  if (event.target === elements.unsubscribeDialog) {
+    closeUnsubscribeDialog();
+  }
+});
+elements.confirmUnsubscribe.addEventListener("click", confirmUnsubscribeSelection);
 
 [elements.providerFilter, elements.categoryFilter, elements.sortOrder].forEach((control) => {
   control.addEventListener("change", render);

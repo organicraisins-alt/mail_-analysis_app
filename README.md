@@ -43,6 +43,13 @@ python3 -m http.server 5173
 
 Gmail連携はローカルOAuthサーバーで動きます。本文は取得せず、Gmail APIの `format=metadata` で `From` / `Subject` / `Date` / `List-Unsubscribe` ヘッダーだけ取得します。
 
+解除操作では、選択したGmail由来の送信元について次を実行できます。
+
+- 今後のメールをGmailフィルタでゴミ箱へ送る
+- 既存の該当メールをGmailのゴミ箱へ移動する
+
+完全削除は行いません。
+
 Google Cloudで次を準備してください。
 
 1. Google Cloud Consoleでプロジェクトを作成
@@ -73,6 +80,16 @@ npm run dev:gmail
 ブラウザで `http://127.0.0.1:5173/` を開き、`Gmail接続` → Google認証 → `Gmail取得` の順に操作します。
 
 OAuthトークンは `.local/google-token.json` に保存され、GitHubにはpushされません。
+
+既に `gmail.readonly` だけで接続済みの場合は、権限が足りません。`.local/google-token.json` を削除してから `Gmail接続` をやり直してください。
+
+### 解除ボタンの現在の挙動
+
+`解除` は、メール内の購読解除URLへアクセスする方式ではありません。
+
+解除前には確認ダイアログを表示し、同じ送信元ドメインの候補をチェックボックスで選べます。チェックを外したものは解除対象外として保持扱いになります。
+
+Gmail由来の対象を選択した場合は、確認ダイアログの設定に応じてGmailフィルタ作成と既存メールのゴミ箱移動を実行します。実際の購読解除を行う場合は、`List-Unsubscribe` ヘッダーの内容を解析し、解除先URLまたはメール送信先をユーザーに明示したうえで、最終確認を追加してから実行する設計にします。
 
 ## 資材構成
 
