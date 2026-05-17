@@ -12,15 +12,15 @@
         <div class="brand">
           <span class="brand-mark" aria-hidden="true">M</span>
           <div>
-            <strong>メール購読管理</strong>
-            <span>Rule-based MVP</span>
+            <strong>配信登録管理</strong>
+            <span>Multi-mail manager</span>
           </div>
         </div>
 
         <nav class="nav-list">
           <a href="#dashboard" class="active">ダッシュボード</a>
           <a href="#accounts">アカウント</a>
-          <a href="#subscriptions">購読一覧</a>
+          <a href="#subscriptions">配信登録</a>
           <a href="#reports">分析</a>
           <a href="#settings">設定</a>
         </nav>
@@ -29,8 +29,8 @@
       <main class="main">
         <header class="topbar">
           <div>
-            <p class="eyebrow">仕様書 ver 1.0 から作成</p>
-            <h1>購読メールを横断管理</h1>
+            <p class="eyebrow">Gmailの「配信登録を管理」を複数メールへ</p>
+            <h1>配信登録をまとめて管理</h1>
           </div>
           <div class="topbar-actions">
             <button id="connectGmail" class="button" type="button">Gmail接続</button>
@@ -54,11 +54,11 @@
             <strong id="accountCount">0</strong>
           </article>
           <article class="metric">
-            <span>購読メール</span>
+            <span>配信登録</span>
             <strong id="subscriptionCount">0</strong>
           </article>
           <article class="metric danger">
-            <span>解除強く推奨</span>
+            <span>整理候補</span>
             <strong id="highRiskCount">0</strong>
           </article>
           <article class="metric">
@@ -81,8 +81,8 @@
         <section id="subscriptions" class="section">
           <div class="section-heading">
             <div>
-              <p class="eyebrow">Subscriptions</p>
-              <h2>購読一覧</h2>
+              <p class="eyebrow">Delivery subscriptions</p>
+              <h2>配信登録一覧</h2>
             </div>
             <div class="controls" aria-label="フィルター">
               <select id="providerFilter" aria-label="サービスで絞り込み">
@@ -102,12 +102,12 @@
             <table>
               <thead>
                 <tr>
-                  <th>送信元</th>
-                  <th>サービス</th>
+                  <th>配信元</th>
+                  <th>届いているアカウント</th>
                   <th>カテゴリ</th>
-                  <th>30日受信</th>
-                  <th>最終開封</th>
-                  <th>スコア</th>
+                  <th>受信頻度</th>
+                  <th>最終受信</th>
+                  <th>状態</th>
                   <th>操作</th>
                 </tr>
               </thead>
@@ -168,20 +168,20 @@
         <div class="execution-options">
           <label>
             <input id="blockFutureMail" type="checkbox" checked />
-            今後この送信元からのメールをGmailフィルタでゴミ箱へ送る
+            今後この配信元からのGmailをフィルタでゴミ箱へ送る
           </label>
           <label>
             <input id="trashExistingMail" type="checkbox" checked />
-            現在受信済みの該当メールをGmailのゴミ箱へ移動する
+            現在受信済みの該当Gmailをゴミ箱へ移動する
           </label>
         </div>
         <div id="unsubscribeTargets" class="target-list"></div>
         <div class="modal-note">
-          Gmail由来の対象は、選択内容に応じてGmailフィルタ作成と既存メールのゴミ箱移動を実行します。完全削除ではないため、必要ならGmailのゴミ箱から復元できます。
+          Gmail由来の対象は、選択内容に応じてGmailフィルタ作成と既存メールのゴミ箱移動を実行します。Yahoo / Outlook / iCloud は現時点では対象外保存のみです。
         </div>
         <div class="modal-actions">
           <button id="cancelUnsubscribe" class="button" type="button">キャンセル</button>
-          <button id="confirmUnsubscribe" class="button primary danger-button" type="button">選択した対象を解除済みにする</button>
+          <button id="confirmUnsubscribe" class="button primary danger-button" type="button">選択した配信登録を処理する</button>
         </div>
       </section>
     </div>

@@ -10,6 +10,7 @@ const defaultState = {
     { id: "gmail-1", provider: "Gmail", email: "main@example.com", status: "connected", syncedAt: "2026-05-16 08:42" },
     { id: "outlook-1", provider: "Outlook", email: "work@example.com", status: "connected", syncedAt: "2026-05-16 08:40" },
     { id: "icloud-1", provider: "iCloud", email: "private@icloud.com", status: "paused", syncedAt: "2026-05-15 22:10" },
+    { id: "yahoo-1", provider: "Yahoo! Mail", email: "shopping@yahoo.example", status: "connected", syncedAt: "2026-05-16 09:15" },
   ],
   subscriptions: [
     { id: "s1", accountId: "gmail-1", senderName: "Daily Deals", senderDomain: "deals.example.jp", category: "広告・セール", lastOpenedDays: 220, receiveCount30d: 38, unsubscribedAt: null, kept: false },
@@ -18,6 +19,8 @@ const defaultState = {
     { id: "s4", accountId: "icloud-1", senderName: "Social Now", senderDomain: "social.example", category: "SNS通知", lastOpenedDays: 74, receiveCount30d: 21, unsubscribedAt: null, kept: false },
     { id: "s5", accountId: "outlook-1", senderName: "Product Updates", senderDomain: "updates.example.io", category: "サービス更新", lastOpenedDays: 45, receiveCount30d: 5, unsubscribedAt: null, kept: false },
     { id: "s6", accountId: "gmail-1", senderName: "Daily Deals", senderDomain: "deals.example.jp", category: "広告・セール", lastOpenedDays: 190, receiveCount30d: 31, unsubscribedAt: null, kept: false },
+    { id: "s7", accountId: "yahoo-1", senderName: "Daily Deals", senderDomain: "deals.example.jp", category: "広告・セール", lastOpenedDays: 160, receiveCount30d: 36, unsubscribedAt: null, kept: false },
+    { id: "s8", accountId: "yahoo-1", senderName: "Travel Club", senderDomain: "travel.example.jp", category: "ニュースレター", lastOpenedDays: 92, receiveCount30d: 14, unsubscribedAt: null, kept: false },
   ],
 };
 
@@ -75,6 +78,53 @@ function saveState() {
 
 function accountFor(subscription) {
   return state.accounts.find((account) => account.id === subscription.accountId);
+}
+
+function activeSubscriptions() {
+  return state.subscriptions.filter((item) => !item.unsubscribedAt);
+}
+
+function deliveryRegistrations() {
+  const groups = new Map();
+
+  for (const subscription of activeSubscriptions()) {
+    const account = accountFor(subscription);
+    const key = subscription.senderDomain || subscription.senderName;
+    const existing = groups.get(key);
+
+    if (!existing) {
+      groups.set(key, {
+        id: key,
+        senderName: subscription.senderName,
+        senderDomain: subscription.senderDomain,
+        category: subscription.category,
+        subscriptions: [subscription],
+        accounts: account ? [account] : [],
+        receiveCount30d: subscription.receiveCount30d,
+        lastOpenedDays: subscription.lastOpenedDays,
+        kept: subscription.kept,
+        score: scoreSubscription(subscription),
+        hasGmail: subscription.source === "gmail" || account?.provider === "Gmail",
+      });
+      continue;
+    }
+
+    existing.subscriptions.push(subscription);
+    if (account && !existing.accounts.some((item) => item.id === account.id)) {
+      existing.accounts.push(account);
+    }
+    existing.receiveCount30d += subscription.receiveCount30d;
+    existing.lastOpenedDays = Math.max(existing.lastOpenedDays, subscription.lastOpenedDays);
+    existing.kept = existing.kept && subscription.kept;
+    existing.score = Math.max(existing.score, scoreSubscription(subscription));
+    existing.hasGmail = existing.hasGmail || subscription.source === "gmail" || account?.provider === "Gmail";
+
+    if (existing.category === "サービス更新" && subscription.category !== "サービス更新") {
+      existing.category = subscription.category;
+    }
+  }
+
+  return [...groups.values()];
 }
 
 function scoreOpened(days) {
@@ -158,14 +208,14 @@ function renderFilters() {
 }
 
 function renderMetrics() {
-  const activeSubscriptions = state.subscriptions.filter((item) => !item.unsubscribedAt);
-  const highRisk = activeSubscriptions.filter((item) => scoreSubscription(item) >= 80);
+  const registrations = deliveryRegistrations();
+  const highRisk = registrations.filter((item) => item.score >= 80);
   const savedMails = state.subscriptions
     .filter((item) => item.unsubscribedAt)
     .reduce((sum, item) => sum + item.receiveCount30d, 0);
 
   elements.accountCount.textContent = state.accounts.length;
-  elements.subscriptionCount.textContent = activeSubscriptions.length;
+  elements.subscriptionCount.textContent = registrations.length;
   elements.highRiskCount.textContent = highRisk.length;
   elements.savedMailCount.textContent = `${savedMails}通`;
 }
@@ -190,43 +240,50 @@ function renderSubscriptions() {
   const category = elements.categoryFilter.value;
   const sort = elements.sortOrder.value;
 
-  const rows = state.subscriptions
-    .filter((item) => !item.unsubscribedAt)
-    .filter((item) => provider === "all" || accountFor(item)?.provider === provider)
+  const rows = deliveryRegistrations()
+    .filter((item) => provider === "all" || item.accounts.some((account) => account.provider === provider))
     .filter((item) => category === "all" || item.category === category)
     .sort((a, b) => {
       if (sort === "frequency") return b.receiveCount30d - a.receiveCount30d;
       if (sort === "sender") return a.senderName.localeCompare(b.senderName, "ja");
-      return scoreSubscription(b) - scoreSubscription(a);
+      return b.score - a.score;
     });
 
   elements.subscriptionRows.innerHTML = rows
     .map((item) => {
-      const account = accountFor(item);
-      const groupedCount = state.subscriptions.filter((subscription) => subscription.senderDomain === item.senderDomain).length;
+      const accountLabel = item.accounts.map((account) => `${account.provider}: ${account.email}`).join("<br>");
+      const providers = [...new Set(item.accounts.map((account) => account.provider))].join(" / ");
+      const status = registrationStatus(item);
       return `
         <tr>
           <td>
             <div class="sender">
               <strong>${item.senderName}</strong>
-              <small>${item.senderDomain}${groupedCount > 1 ? ` / 名寄せ ${groupedCount}件` : ""}</small>
+              <small>${item.senderDomain} / ${providers || "未接続"} / ${item.subscriptions.length}件</small>
             </div>
           </td>
-          <td>${account?.provider ?? "不明"}</td>
+          <td class="account-cell">${accountLabel || "不明"}</td>
           <td>${item.category}</td>
           <td>${item.receiveCount30d}通</td>
           <td>${item.lastOpenedDays}日前</td>
-          <td>${scoreBadge(scoreSubscription(item))}</td>
+          <td>${status}</td>
           <td>
             <div class="row-actions">
-              <button class="unsubscribe" data-action="unsubscribe" data-id="${item.id}" type="button">解除</button>
-              <button data-action="keep" data-id="${item.id}" type="button">保持</button>
+              <button class="unsubscribe" data-action="unsubscribe" data-id="${item.id}" type="button">管理</button>
+              <button data-action="keep-group" data-id="${item.id}" type="button">残す</button>
             </div>
           </td>
         </tr>
       `;
     })
     .join("");
+}
+
+function registrationStatus(registration) {
+  if (registration.kept) return `<span class="badge low">保持中</span>`;
+  if (registration.score >= 80) return `<span class="badge high">整理候補</span>`;
+  if (registration.score >= 50) return `<span class="badge medium">確認</span>`;
+  return `<span class="badge low">低頻度</span>`;
 }
 
 function renderReports() {
@@ -267,15 +324,19 @@ function showToast(message) {
 }
 
 function openUnsubscribeDialog(subscription) {
-  const account = accountFor(subscription);
-  const related = state.subscriptions
+  const registration = typeof subscription === "string"
+    ? deliveryRegistrations().find((item) => item.id === subscription)
+    : null;
+  const representative = registration?.subscriptions[0] || subscription;
+  const account = accountFor(representative);
+  const related = registration?.subscriptions || state.subscriptions
     .filter((item) => !item.unsubscribedAt)
-    .filter((item) => item.senderDomain === subscription.senderDomain);
+    .filter((item) => item.senderDomain === representative.senderDomain);
   pendingUnsubscribeIds = related.map((item) => item.id);
 
   elements.unsubscribeDialogSummary.textContent =
-    `${subscription.senderName} (${subscription.senderDomain}) の購読解除候補です。` +
-    `対象アカウントやカテゴリを確認し、解除対象外にしたいものはチェックを外してください。`;
+    `${representative.senderName} (${representative.senderDomain}) の配信登録です。` +
+    `どのメールアカウントに届いているかを確認し、管理対象外にしたいものはチェックを外してください。`;
   elements.blockFutureMail.checked = true;
   elements.trashExistingMail.checked = true;
 
@@ -501,17 +562,26 @@ elements.subscriptionRows.addEventListener("click", (event) => {
   const button = event.target.closest("button[data-action]");
   if (!button) return;
 
-  const subscription = state.subscriptions.find((item) => item.id === button.dataset.id);
-  if (!subscription) return;
-
   if (button.dataset.action === "unsubscribe") {
-    openUnsubscribeDialog(subscription);
+    openUnsubscribeDialog(button.dataset.id);
     return;
   }
 
+  const subscription = state.subscriptions.find((item) => item.id === button.dataset.id);
   if (button.dataset.action === "keep") {
+    if (!subscription) return;
     subscription.kept = true;
     showToast(`${subscription.senderName} を保持に設定しました`);
+  }
+
+  if (button.dataset.action === "keep-group") {
+    const registration = deliveryRegistrations().find((item) => item.id === button.dataset.id);
+    if (registration) {
+      for (const item of registration.subscriptions) {
+        item.kept = true;
+      }
+      showToast(`${registration.senderName} を保持に設定しました`);
+    }
   }
 
   render();
