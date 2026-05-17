@@ -18,9 +18,9 @@
         </div>
 
         <nav class="nav-list">
-          <a href="#dashboard" class="active">ダッシュボード</a>
+          <a href="#dashboard">ダッシュボード</a>
           <a href="#accounts">アカウント</a>
-          <a href="#subscriptions">配信登録</a>
+          <a href="#subscriptions" class="active">配信登録を管理</a>
           <a href="#reports">分析</a>
           <a href="#settings">設定</a>
         </nav>
@@ -82,7 +82,8 @@
           <div class="section-heading">
             <div>
               <p class="eyebrow">Delivery subscriptions</p>
-              <h2>配信登録一覧</h2>
+              <h2>配信登録</h2>
+              <p class="section-description">登録を解除しても、メッセージの送信が停止されるまで数日かかることがあります</p>
             </div>
             <div class="controls" aria-label="フィルター">
               <select id="providerFilter" aria-label="サービスで絞り込み">
@@ -98,16 +99,14 @@
               </select>
             </div>
           </div>
-          <div class="table-wrap">
-            <table>
+          <div class="subscription-list-wrap">
+            <table class="subscription-list-table">
               <thead>
                 <tr>
-                  <th>配信元</th>
-                  <th>届いているアカウント</th>
-                  <th>カテゴリ</th>
-                  <th>受信頻度</th>
-                  <th>最終受信</th>
-                  <th>状態</th>
+                  <th>送信者</th>
+                  <th>メールアドレス</th>
+                  <th>最近の受信</th>
+                  <th>種類</th>
                   <th>操作</th>
                 </tr>
               </thead>

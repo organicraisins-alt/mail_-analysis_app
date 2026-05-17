@@ -299,6 +299,63 @@ tr:last-child td {
   line-height: 1.6;
 }
 
+.subscription-list-wrap {
+  margin-top: 16px;
+  overflow-x: auto;
+}
+
+.subscription-list-table {
+  min-width: 1080px;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: transparent;
+}
+
+.subscription-list-table th,
+.subscription-list-table td {
+  border-bottom: 1px solid #edf0f5;
+  padding: 16px 12px;
+}
+
+.subscription-list-table th {
+  background: #fff;
+}
+
+.sender-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 310px;
+}
+
+.sender-name-cell strong,
+.sender-name-cell small {
+  display: block;
+}
+
+.sender-name-cell small {
+  color: var(--muted);
+  margin-top: 3px;
+}
+
+.sender-avatar {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #5b6fd6;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 800;
+  flex: 0 0 auto;
+}
+
+.email-cell {
+  color: #344054;
+  min-width: 260px;
+}
+
 .badge {
   display: inline-flex;
   align-items: center;

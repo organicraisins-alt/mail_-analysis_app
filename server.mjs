@@ -435,6 +435,7 @@ function normalizeGmailMessage(message, emailAddress) {
     messageIds: [message.id],
     accountId: `gmail-real-${emailAddress}`,
     senderName: from.name || from.email || from.domain,
+    senderEmail: from.email,
     senderDomain: from.domain || "unknown",
     subject: headers.subject || "",
     category: inferCategory(headers.subject || "", from.domain || "", labelIds),

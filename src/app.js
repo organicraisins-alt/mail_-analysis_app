@@ -21,6 +21,9 @@ const defaultState = {
     { id: "s6", accountId: "gmail-1", senderName: "Daily Deals", senderDomain: "deals.example.jp", category: "広告・セール", lastOpenedDays: 190, receiveCount30d: 31, unsubscribedAt: null, kept: false },
     { id: "s7", accountId: "yahoo-1", senderName: "Daily Deals", senderDomain: "deals.example.jp", category: "広告・セール", lastOpenedDays: 160, receiveCount30d: 36, unsubscribedAt: null, kept: false },
     { id: "s8", accountId: "yahoo-1", senderName: "Travel Club", senderDomain: "travel.example.jp", category: "ニュースレター", lastOpenedDays: 92, receiveCount30d: 14, unsubscribedAt: null, kept: false },
+    { id: "s9", accountId: "gmail-1", senderName: "Amazon Store-News", senderEmail: "store-news@amazon.co.jp", senderDomain: "amazon.co.jp", category: "広告・セール", lastOpenedDays: 8, receiveCount30d: 24, unsubscribedAt: null, kept: false },
+    { id: "s10", accountId: "outlook-1", senderName: "OpenWork", senderEmail: "news_today@openwork.jp", senderDomain: "openwork.jp", category: "ニュースレター", lastOpenedDays: 11, receiveCount30d: 22, unsubscribedAt: null, kept: false },
+    { id: "s11", accountId: "icloud-1", senderName: "Lenovo", senderEmail: "lenovo@ecomm.lenovo.com", senderDomain: "ecomm.lenovo.com", category: "広告・セール", lastOpenedDays: 15, receiveCount30d: 20, unsubscribedAt: null, kept: false },
   ],
 };
 
@@ -96,6 +99,7 @@ function deliveryRegistrations() {
       groups.set(key, {
         id: key,
         senderName: subscription.senderName,
+        senderEmail: subscription.senderEmail || "",
         senderDomain: subscription.senderDomain,
         category: subscription.category,
         subscriptions: [subscription],
@@ -118,6 +122,9 @@ function deliveryRegistrations() {
     existing.kept = existing.kept && subscription.kept;
     existing.score = Math.max(existing.score, scoreSubscription(subscription));
     existing.hasGmail = existing.hasGmail || subscription.source === "gmail" || account?.provider === "Gmail";
+    if (!existing.senderEmail && subscription.senderEmail) {
+      existing.senderEmail = subscription.senderEmail;
+    }
 
     if (existing.category === "サービス更新" && subscription.category !== "サービス更新") {
       existing.category = subscription.category;
@@ -251,25 +258,24 @@ function renderSubscriptions() {
 
   elements.subscriptionRows.innerHTML = rows
     .map((item) => {
-      const accountLabel = item.accounts.map((account) => `${account.provider}: ${account.email}`).join("<br>");
-      const providers = [...new Set(item.accounts.map((account) => account.provider))].join(" / ");
-      const status = registrationStatus(item);
+      const email = item.senderEmail || guessSenderEmail(item);
+      const type = item.category === "広告・セール" || item.category === "ニュースレター" ? "メーリングリスト" : item.category;
+      const recentLabel = item.receiveCount30d >= 20 ? "最近受信したメールが20件以上" : `最近30日で${item.receiveCount30d}件`;
       return `
         <tr>
-          <td>
-            <div class="sender">
-              <strong>${item.senderName}</strong>
-              <small>${item.senderDomain} / ${providers || "未接続"} / ${item.subscriptions.length}件</small>
+          <td class="sender-name-cell">
+            <span class="sender-avatar">${escapeHtml(initialFor(item.senderName))}</span>
+            <div>
+              <strong>${escapeHtml(item.senderName)}</strong>
+              <small>${escapeHtml(accountSummary(item))}</small>
             </div>
           </td>
-          <td class="account-cell">${accountLabel || "不明"}</td>
-          <td>${item.category}</td>
-          <td>${item.receiveCount30d}通</td>
-          <td>${item.lastOpenedDays}日前</td>
-          <td>${status}</td>
+          <td class="email-cell">${escapeHtml(email)}</td>
+          <td>${escapeHtml(recentLabel)}</td>
+          <td>${escapeHtml(type)}</td>
           <td>
             <div class="row-actions">
-              <button class="unsubscribe" data-action="unsubscribe" data-id="${item.id}" type="button">管理</button>
+              <button class="unsubscribe" data-action="unsubscribe" data-id="${item.id}" type="button">配信停止</button>
               <button data-action="keep-group" data-id="${item.id}" type="button">残す</button>
             </div>
           </td>
@@ -277,6 +283,22 @@ function renderSubscriptions() {
       `;
     })
     .join("");
+}
+
+function initialFor(name) {
+  const trimmed = String(name || "?").trim();
+  return trimmed.charAt(0).toUpperCase();
+}
+
+function guessSenderEmail(registration) {
+  const first = registration.subscriptions.find((item) => item.senderEmail);
+  if (first?.senderEmail) return first.senderEmail;
+  return registration.senderDomain ? `*@${registration.senderDomain}` : "不明";
+}
+
+function accountSummary(registration) {
+  const providers = [...new Set(registration.accounts.map((account) => account.provider))];
+  return `${providers.join(" / ") || "未接続"} ・ ${registration.subscriptions.length}件`;
 }
 
 function registrationStatus(registration) {
