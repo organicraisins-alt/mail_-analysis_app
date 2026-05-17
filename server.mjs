@@ -302,25 +302,28 @@ async function getGmailSubscriptions() {
   const metadata = await mapWithConcurrency(messages, 4, (message) =>
     gmailFetch(
       accessToken,
-      `https://gmail.googleapis.com/gmail/v1/users/me/messages/${message.id}?` +
-        new URLSearchParams({
-          format: "metadata",
-          metadataHeaders: [
-            "From",
-            "Subject",
-            "Date",
-            "List-Unsubscribe",
-            "List-ID",
-            "Precedence",
-            "Auto-Submitted",
-          ],
-        }).toString(),
+      buildMetadataUrl(message.id),
     ),
   );
 
-  const subscriptions = metadata
+  const normalized = metadata
     .map((message) => normalizeGmailMessage(message, profile.emailAddress))
-    .filter((message) => message.isSubscriptionCandidate);
+    .filter((message) => message.senderDomain && message.senderDomain !== "unknown")
+    .filter((message) => message.senderEmail !== profile.emailAddress.toLowerCase());
+  const domainCounts = countByDomain(normalized);
+  let subscriptions = normalized.filter((message) => {
+    const count = domainCounts.get(message.senderDomain) || 0;
+    return count >= 20;
+  });
+  if (!subscriptions.length) {
+    const topDomains = new Set(
+      [...domainCounts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 20)
+        .map(([domain]) => domain),
+    );
+    subscriptions = normalized.filter((message) => topDomains.has(message.senderDomain));
+  }
 
   const grouped = groupByDomain(subscriptions);
   return {
@@ -331,8 +334,26 @@ async function getGmailSubscriptions() {
   };
 }
 
+function buildMetadataUrl(messageId) {
+  const params = new URLSearchParams({ format: "metadata" });
+  const headers = [
+    "From",
+    "Subject",
+    "Date",
+    "List-Unsubscribe",
+    "List-ID",
+    "Precedence",
+    "Auto-Submitted",
+  ];
+  for (const header of headers) {
+    params.append("metadataHeaders", header);
+  }
+  return `https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}?${params.toString()}`;
+}
+
 async function listCandidateMessages(accessToken, limit) {
   const queries = [
+    "newer_than:365d -in:trash",
     "category:promotions newer_than:365d -in:trash",
     "category:updates newer_than:365d -in:trash",
     "category:social newer_than:365d -in:trash",
@@ -452,15 +473,30 @@ function normalizeGmailMessage(message, emailAddress) {
 }
 
 function parseFrom(value) {
-  const emailMatch = value.match(/[A-Z0-9._%+-]+@([A-Z0-9.-]+\.[A-Z]{2,})/i);
-  const email = emailMatch?.[0] || "";
+  const decoded = decodeMimeWords(value);
+  const emailMatch = decoded.match(/[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@([A-Z0-9-]+(?:\.[A-Z0-9-]+)+)/i);
+  const email = emailMatch?.[0]?.toLowerCase() || "";
   const domain = emailMatch?.[1]?.toLowerCase() || "";
-  const name = value
+  const name = decoded
     .replace(/<[^>]+>/g, "")
+    .replace(email, "")
     .replace(/"/g, "")
     .trim();
 
   return { name, email, domain };
+}
+
+function decodeMimeWords(value) {
+  return String(value || "").replace(/=\?([^?]+)\?([BQ])\?([^?]+)\?=/gi, (_match, charset, encoding, text) => {
+    try {
+      const bytes = encoding.toUpperCase() === "B"
+        ? Buffer.from(text, "base64")
+        : Buffer.from(text.replaceAll("_", " ").replace(/=([A-F0-9]{2})/gi, (_hexMatch, hex) => String.fromCharCode(parseInt(hex, 16))), "binary");
+      return bytes.toString(/utf-?8/i.test(charset) ? "utf8" : "latin1");
+    } catch {
+      return value;
+    }
+  });
 }
 
 function inferCategory(subject, domain, labelIds = []) {
@@ -486,11 +522,25 @@ function groupByDomain(items) {
     current.receiveCount30d += 1;
     current.messageIds = [...new Set([...(current.messageIds || []), ...(item.messageIds || [])])];
     current.lastOpenedDays = Math.max(current.lastOpenedDays, item.lastOpenedDays);
+    if (!current.senderEmail && item.senderEmail) {
+      current.senderEmail = item.senderEmail;
+    }
+    if ((!current.senderName || current.senderName === current.senderDomain) && item.senderName) {
+      current.senderName = item.senderName;
+    }
     if (current.category === "サービス更新" && item.category !== "サービス更新") {
       current.category = item.category;
     }
   }
   return [...map.values()];
+}
+
+function countByDomain(items) {
+  const counts = new Map();
+  for (const item of items) {
+    counts.set(item.senderDomain, (counts.get(item.senderDomain) || 0) + 1);
+  }
+  return counts;
 }
 
 function serveStatic(pathname, response) {

@@ -293,7 +293,8 @@ function initialFor(name) {
 function guessSenderEmail(registration) {
   const first = registration.subscriptions.find((item) => item.senderEmail);
   if (first?.senderEmail) return first.senderEmail;
-  return registration.senderDomain ? `*@${registration.senderDomain}` : "不明";
+  if (registration.senderDomain && registration.senderDomain !== "unknown") return `*@${registration.senderDomain}`;
+  return "送信元メールアドレス未取得";
 }
 
 function accountSummary(registration) {
