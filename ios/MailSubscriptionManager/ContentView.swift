@@ -30,7 +30,7 @@ struct ContentView: View {
                     Label("設定", systemImage: "slider.horizontal.3")
                 }
         }
-        .tint(.teal)
+        .tint(Color(red: 1.0, green: 0.4, blue: 0.0))
     }
 }
 
@@ -43,7 +43,7 @@ struct DashboardView: View {
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                     MetricCard(title: "接続アカウント", value: "\(store.accounts.count)", systemImage: "mail.stack", color: .blue)
                     MetricCard(title: "購読メール", value: "\(store.activeSubscriptions.count)", systemImage: "tray.full", color: .teal)
-                    MetricCard(title: "解除強く推奨", value: "\(store.highRecommendationCount)", systemImage: "exclamationmark.triangle", color: .red)
+                    MetricCard(title: "20通以上候補", value: "\(store.highRecommendationCount)", systemImage: "exclamationmark.triangle", color: .red)
                     MetricCard(title: "推定削減/月", value: "\(store.savedMailCount)通", systemImage: "scissors", color: .green)
                 }
                 .padding(.horizontal)
@@ -61,6 +61,8 @@ struct DashboardView: View {
                 .padding(.top, 12)
             }
             .navigationTitle("ダッシュボード")
+            .scrollContentBackground(.hidden)
+            .background(Color.hackerBackground.ignoresSafeArea())
             .toolbar {
                 Button {
                     store.syncAll()
@@ -73,7 +75,7 @@ struct DashboardView: View {
 
     private var topRecommendations: [Subscription] {
         store.activeSubscriptions
-            .sorted { store.score(for: $0) > store.score(for: $1) }
+            .sorted { $0.receiveCount30Days > $1.receiveCount30Days }
             .prefix(3)
             .map { $0 }
     }
@@ -117,6 +119,8 @@ struct AccountsView: View {
                 }
             }
             .navigationTitle("アカウント")
+            .scrollContentBackground(.hidden)
+            .background(Color.hackerBackground.ignoresSafeArea())
             .toolbar {
                 Button {
                     store.addDemoAccount()
@@ -133,7 +137,7 @@ struct SubscriptionsView: View {
     @EnvironmentObject private var store: AppStore
     @State private var selectedProvider: MailProvider?
     @State private var selectedCategory: SubscriptionCategory?
-    @State private var sort: SubscriptionSort = .score
+    @State private var sort: SubscriptionSort = .frequencyHigh
 
     var body: some View {
         NavigationStack {
@@ -144,6 +148,7 @@ struct SubscriptionsView: View {
                             Text(sort.title).tag(sort)
                         }
                     }
+                    .pickerStyle(.segmented)
 
                     Picker("サービス", selection: $selectedProvider) {
                         Text("すべて").tag(MailProvider?.none)
@@ -168,8 +173,10 @@ struct SubscriptionsView: View {
                     }
                 }
             }
-            .listStyle(.insetGrouped)
+            .listStyle(.plain)
             .navigationTitle("購読一覧")
+            .scrollContentBackground(.hidden)
+            .background(Color.hackerBackground.ignoresSafeArea())
         }
     }
 
@@ -185,12 +192,10 @@ struct SubscriptionsView: View {
             }
             .sorted { first, second in
                 switch sort {
-                case .score:
-                    return store.score(for: first) > store.score(for: second)
-                case .frequency:
+                case .frequencyHigh:
                     return first.receiveCount30Days > second.receiveCount30Days
-                case .sender:
-                    return first.senderName.localizedCompare(second.senderName) == .orderedAscending
+                case .frequencyLow:
+                    return first.receiveCount30Days < second.receiveCount30Days
                 }
             }
     }
@@ -198,18 +203,16 @@ struct SubscriptionsView: View {
 
 struct SubscriptionCard: View {
     @EnvironmentObject private var store: AppStore
+    @State private var showsActionDialog = false
     var subscription: Subscription
     var compact = false
 
     var body: some View {
-        let score = store.score(for: subscription)
-        let band = ScoreBand(score: score)
-
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(subscription.senderName)
-                        .font(.headline)
+                        .font(.headline.weight(.semibold))
                     Text(subscription.senderDomain)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
@@ -223,12 +226,12 @@ struct SubscriptionCard: View {
                 Spacer()
 
                 VStack(alignment: .trailing, spacing: 4) {
-                    Text("\(score)")
+                    Text("\(subscription.receiveCount30Days)通")
                         .font(.title3.weight(.bold))
-                        .foregroundStyle(band.color)
-                    Text(band.label)
+                        .foregroundStyle(Color.hackerOrange)
+                    Text("30日")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(band.color)
+                        .foregroundStyle(.secondary)
                 }
             }
 
@@ -250,25 +253,35 @@ struct SubscriptionCard: View {
             if !compact {
                 HStack {
                     Button(role: .destructive) {
-                        store.unsubscribe(subscription)
+                        showsActionDialog = true
                     } label: {
                         Label("解除", systemImage: "trash")
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(HackerButtonStyle())
 
                     Button {
                         store.keep(subscription)
                     } label: {
                         Label("保持", systemImage: "checkmark.circle")
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.green)
+                    .buttonStyle(HackerButtonStyle())
                 }
             }
         }
-        .padding()
-        .background(Color(uiColor: .secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .padding(12)
+        .background(Color.hackerPanel)
+        .overlay(Rectangle().stroke(Color.hackerLine, lineWidth: 1))
+        .confirmationDialog("迷惑メールに登録しますか？", isPresented: $showsActionDialog, titleVisibility: .visible) {
+            Button("はい、迷惑メールに登録", role: .destructive) {
+                store.unsubscribe(subscription, action: .markSpam)
+            }
+            Button("いいえ、削除だけ", role: .destructive) {
+                store.unsubscribe(subscription, action: .trashOnly)
+            }
+            Button("キャンセル", role: .cancel) {}
+        } message: {
+            Text("迷惑メール登録を選ぶと、今後の同じ送信元も迷惑メール扱いになりやすくなります。削除だけを選ぶと、現在の対象メールだけを処理します。")
+        }
     }
 }
 
@@ -292,6 +305,11 @@ struct ReportsView: View {
                                     .foregroundStyle(.secondary)
                             }
                             Spacer()
+                            if let action = subscription.lastAction {
+                                Text(action.label)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
                             Button("戻す") {
                                 store.restore(subscription)
                             }
@@ -316,6 +334,8 @@ struct ReportsView: View {
                 }
             }
             .navigationTitle("分析")
+            .scrollContentBackground(.hidden)
+            .background(Color.hackerBackground.ignoresSafeArea())
         }
     }
 
@@ -361,6 +381,8 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("設定")
+            .scrollContentBackground(.hidden)
+            .background(Color.hackerBackground.ignoresSafeArea())
             .onAppear(perform: loadWeights)
         }
     }
@@ -390,9 +412,9 @@ struct MetricCard: View {
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
-        .background(Color(uiColor: .secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .padding(12)
+        .background(Color.hackerPanel)
+        .overlay(Rectangle().stroke(Color.hackerLine, lineWidth: 1))
     }
 }
 
@@ -414,22 +436,34 @@ struct SliderRow: View {
 }
 
 enum SubscriptionSort: String, CaseIterable, Identifiable {
-    case score
-    case frequency
-    case sender
+    case frequencyHigh
+    case frequencyLow
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
-        case .score: return "スコア順"
-        case .frequency: return "受信頻度順"
-        case .sender: return "送信元順"
+        case .frequencyHigh: return "多い順"
+        case .frequencyLow: return "少ない順"
         }
     }
 }
 
-#Preview {
-    ContentView()
-        .environmentObject(AppStore())
+struct HackerButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.caption.weight(.semibold))
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(configuration.isPressed ? Color.hackerPressed : Color.hackerPanel)
+            .overlay(Rectangle().stroke(Color.hackerLine, lineWidth: 1))
+    }
+}
+
+extension Color {
+    static let hackerOrange = Color(red: 1.0, green: 0.4, blue: 0.0)
+    static let hackerBackground = Color(red: 0.964, green: 0.964, blue: 0.902)
+    static let hackerPanel = Color(red: 1.0, green: 0.996, blue: 0.94)
+    static let hackerLine = Color(red: 0.85, green: 0.83, blue: 0.74)
+    static let hackerPressed = Color(red: 1.0, green: 0.95, blue: 0.82)
 }

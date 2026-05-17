@@ -21,7 +21,7 @@ final class AppStore: ObservableObject {
     }
 
     var highRecommendationCount: Int {
-        activeSubscriptions.filter { score(for: $0) >= 80 }.count
+        activeSubscriptions.filter { $0.receiveCount30Days >= 20 }.count
     }
 
     var savedMailCount: Int {
@@ -53,10 +53,11 @@ final class AppStore: ObservableObject {
         return Int(score.rounded())
     }
 
-    func unsubscribe(_ subscription: Subscription) {
+    func unsubscribe(_ subscription: Subscription, action: UnsubscribeAction = .trashOnly) {
         guard let index = subscriptions.firstIndex(where: { $0.id == subscription.id }) else { return }
         subscriptions[index].unsubscribedAt = Date()
         subscriptions[index].isKept = false
+        subscriptions[index].lastAction = action
         save()
     }
 
@@ -69,6 +70,7 @@ final class AppStore: ObservableObject {
     func restore(_ subscription: Subscription) {
         guard let index = subscriptions.firstIndex(where: { $0.id == subscription.id }) else { return }
         subscriptions[index].unsubscribedAt = nil
+        subscriptions[index].lastAction = nil
         save()
     }
 

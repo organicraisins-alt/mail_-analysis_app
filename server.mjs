@@ -158,8 +158,7 @@ async function exchangeCodeForToken(code) {
 async function blockAndTrashGmail(request) {
   const body = await readJsonBody(request);
   const targets = Array.isArray(body.targets) ? body.targets : [];
-  const shouldBlockFuture = body.blockFuture !== false;
-  const shouldTrashExisting = body.trashExisting !== false;
+  const action = body.action === "spam" ? "spam" : "trash";
 
   if (!targets.length) {
     throw new Error("Gmailで処理する対象がありません。");
@@ -174,42 +173,27 @@ async function blockAndTrashGmail(request) {
 
     const result = {
       senderDomain: domain,
-      filterCreated: false,
+      action,
+      spammedCount: 0,
       trashedCount: 0,
-      trashMethod: "none",
+      method: "none",
     };
+    const messageIds = Array.isArray(target.messageIds) ? target.messageIds : [];
 
-    if (shouldBlockFuture) {
-      await createTrashFilter(accessToken, domain);
-      result.filterCreated = true;
-    }
-
-    if (shouldTrashExisting) {
-      const messageIds = Array.isArray(target.messageIds) ? target.messageIds : [];
+    if (action === "spam") {
+      const spamResult = await markExistingMessagesAsSpam(accessToken, domain, messageIds);
+      result.spammedCount = spamResult.count;
+      result.method = spamResult.method;
+    } else {
       const trashResult = await trashExistingMessages(accessToken, domain, messageIds);
       result.trashedCount = trashResult.count;
-      result.trashMethod = trashResult.method;
+      result.method = trashResult.method;
     }
 
     results.push(result);
   }
 
   return { results };
-}
-
-async function createTrashFilter(accessToken, senderDomain) {
-  return gmailFetch(accessToken, "https://gmail.googleapis.com/gmail/v1/users/me/settings/filters", {
-    method: "POST",
-    body: JSON.stringify({
-      criteria: {
-        from: senderDomain,
-      },
-      action: {
-        addLabelIds: ["TRASH"],
-        removeLabelIds: ["INBOX", "UNREAD"],
-      },
-    }),
-  });
 }
 
 async function trashExistingMessages(accessToken, senderDomain, messageIds = []) {
@@ -245,6 +229,46 @@ async function trashExistingMessages(accessToken, senderDomain, messageIds = [])
 async function trashMessage(accessToken, messageId) {
   return gmailFetch(accessToken, `https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}/trash`, {
     method: "POST",
+  });
+}
+
+async function markExistingMessagesAsSpam(accessToken, senderDomain, messageIds = []) {
+  const directIds = [...new Set(messageIds.filter(Boolean))];
+  if (directIds.length) {
+    let count = 0;
+    for (const id of directIds) {
+      await modifyMessageLabels(accessToken, id, ["SPAM"], ["INBOX", "UNREAD"]);
+      count += 1;
+    }
+    return { count, method: "messageIds" };
+  }
+
+  const listed = await gmailFetch(
+    accessToken,
+    "https://gmail.googleapis.com/gmail/v1/users/me/messages?" +
+      new URLSearchParams({
+        maxResults: "500",
+        q: `from:${senderDomain} newer_than:365d -in:trash`,
+      }).toString(),
+  );
+  const ids = (listed.messages || []).map((message) => message.id);
+  if (!ids.length) return { count: 0, method: "search" };
+
+  let count = 0;
+  for (const id of ids) {
+    await modifyMessageLabels(accessToken, id, ["SPAM"], ["INBOX", "UNREAD"]);
+    count += 1;
+  }
+  return { count, method: "search" };
+}
+
+async function modifyMessageLabels(accessToken, messageId, addLabelIds = [], removeLabelIds = []) {
+  return gmailFetch(accessToken, `https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}/modify`, {
+    method: "POST",
+    body: JSON.stringify({
+      addLabelIds,
+      removeLabelIds,
+    }),
   });
 }
 

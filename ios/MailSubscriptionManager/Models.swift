@@ -70,6 +70,7 @@ struct Subscription: Identifiable, Codable, Equatable {
     var receiveCount30Days: Int
     var unsubscribedAt: Date?
     var isKept: Bool
+    var lastAction: UnsubscribeAction?
 
     init(
         id: UUID = UUID(),
@@ -80,7 +81,8 @@ struct Subscription: Identifiable, Codable, Equatable {
         lastOpenedDays: Int,
         receiveCount30Days: Int,
         unsubscribedAt: Date? = nil,
-        isKept: Bool = false
+        isKept: Bool = false,
+        lastAction: UnsubscribeAction? = nil
     ) {
         self.id = id
         self.accountID = accountID
@@ -91,6 +93,19 @@ struct Subscription: Identifiable, Codable, Equatable {
         self.receiveCount30Days = receiveCount30Days
         self.unsubscribedAt = unsubscribedAt
         self.isKept = isKept
+        self.lastAction = lastAction
+    }
+}
+
+enum UnsubscribeAction: String, Codable, Equatable {
+    case markSpam
+    case trashOnly
+
+    var label: String {
+        switch self {
+        case .markSpam: return "迷惑メール登録"
+        case .trashOnly: return "削除だけ"
+        }
     }
 }
 

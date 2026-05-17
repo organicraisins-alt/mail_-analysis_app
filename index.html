@@ -29,8 +29,8 @@
       <main class="main">
         <header class="topbar">
           <div>
-            <p class="eyebrow">Gmailの「配信登録を管理」を複数メールへ</p>
-            <h1>配信登録をまとめて管理</h1>
+            <p class="eyebrow">multi mailbox subscriptions</p>
+            <h1>配信登録</h1>
           </div>
           <div class="topbar-actions">
             <button id="connectGmail" class="button" type="button">Gmail接続</button>
@@ -93,9 +93,8 @@
                 <option value="all">全カテゴリ</option>
               </select>
               <select id="sortOrder" aria-label="並び替え">
-                <option value="score">スコア順</option>
-                <option value="frequency">受信頻度順</option>
-                <option value="sender">送信元順</option>
+                <option value="frequency-desc">受信頻度が多い順</option>
+                <option value="frequency-asc">受信頻度が少ない順</option>
               </select>
             </div>
           </div>
@@ -164,19 +163,20 @@
           <button id="closeUnsubscribeDialog" class="icon-button" type="button" aria-label="閉じる">×</button>
         </div>
         <p id="unsubscribeDialogSummary" class="modal-summary"></p>
-        <div class="execution-options">
+        <fieldset class="execution-options">
+          <legend>処理方法</legend>
           <label>
-            <input id="blockFutureMail" type="checkbox" checked />
-            今後この配信元からのGmailをフィルタでゴミ箱へ送る
+            <input name="gmailAction" type="radio" value="spam" />
+            はい。選択した送信元を迷惑メールとして登録する
           </label>
           <label>
-            <input id="trashExistingMail" type="checkbox" checked />
-            現在受信済みの該当Gmailをゴミ箱へ移動する
+            <input name="gmailAction" type="radio" value="trash" checked />
+            いいえ。現在受信済みの該当メールを削除だけする
           </label>
-        </div>
+        </fieldset>
         <div id="unsubscribeTargets" class="target-list"></div>
         <div class="modal-note">
-          Gmail由来の対象は、選択内容に応じてGmailフィルタ作成と既存メールのゴミ箱移動を実行します。Yahoo / Outlook / iCloud は現時点では対象外保存のみです。
+          Gmail由来の対象は、選択内容に応じて迷惑メール登録または既存メールのゴミ箱移動を実行します。Yahoo / Outlook / iCloud は現時点では対象外保存のみです。
         </div>
         <div class="modal-actions">
           <button id="cancelUnsubscribe" class="button" type="button">キャンセル</button>

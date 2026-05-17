@@ -60,8 +60,7 @@ const elements = {
   closeUnsubscribeDialog: document.querySelector("#closeUnsubscribeDialog"),
   cancelUnsubscribe: document.querySelector("#cancelUnsubscribe"),
   confirmUnsubscribe: document.querySelector("#confirmUnsubscribe"),
-  blockFutureMail: document.querySelector("#blockFutureMail"),
-  trashExistingMail: document.querySelector("#trashExistingMail"),
+  gmailActionInputs: document.querySelectorAll("input[name='gmailAction']"),
 };
 
 function loadState() {
@@ -251,9 +250,8 @@ function renderSubscriptions() {
     .filter((item) => provider === "all" || item.accounts.some((account) => account.provider === provider))
     .filter((item) => category === "all" || item.category === category)
     .sort((a, b) => {
-      if (sort === "frequency") return b.receiveCount30d - a.receiveCount30d;
-      if (sort === "sender") return a.senderName.localeCompare(b.senderName, "ja");
-      return b.score - a.score;
+      if (sort === "frequency-asc") return a.receiveCount30d - b.receiveCount30d;
+      return b.receiveCount30d - a.receiveCount30d;
     });
 
   elements.subscriptionRows.innerHTML = rows
@@ -360,8 +358,8 @@ function openUnsubscribeDialog(subscription) {
   elements.unsubscribeDialogSummary.textContent =
     `${representative.senderName} (${representative.senderDomain}) の配信登録です。` +
     `どのメールアカウントに届いているかを確認し、管理対象外にしたいものはチェックを外してください。`;
-  elements.blockFutureMail.checked = true;
-  elements.trashExistingMail.checked = true;
+  const trashAction = [...elements.gmailActionInputs].find((input) => input.value === "trash");
+  if (trashAction) trashAction.checked = true;
 
   elements.unsubscribeTargets.innerHTML = related
     .map((item) => {
@@ -408,24 +406,28 @@ async function confirmUnsubscribeSelection() {
       senderName: item.senderName,
       messageIds: item.messageIds || [],
     }));
+  const gmailAction = [...elements.gmailActionInputs].find((input) => input.checked)?.value || "trash";
 
   if (gmailTargets.length) {
     elements.confirmUnsubscribe.disabled = true;
-    showToast("Gmailフィルタとゴミ箱移動を実行しています");
+    showToast(gmailAction === "spam" ? "Gmailで迷惑メール登録を実行しています" : "Gmailでゴミ箱移動を実行しています");
     try {
       const result = await postJson("/api/gmail/block-delete", {
         targets: dedupeTargets(gmailTargets),
-        blockFuture: elements.blockFutureMail.checked,
-        trashExisting: elements.trashExistingMail.checked,
+        action: gmailAction,
       });
-      const trashedCount = result.results.reduce((sum, item) => sum + item.trashedCount, 0);
-      const details = result.results.map((item) => `${item.senderDomain}: ${item.trashedCount}件`).join(" / ");
-      showToast(`Gmail処理完了: フィルタ${result.results.length}件 / ゴミ箱移動${trashedCount}件`);
+      const processedCount = result.results.reduce((sum, item) => sum + (item.spammedCount || item.trashedCount || 0), 0);
+      const details = result.results
+        .map((item) => `${item.senderDomain}: ${item.spammedCount || item.trashedCount || 0}件`)
+        .join(" / ");
+      showToast(gmailAction === "spam"
+        ? `Gmail迷惑メール登録完了: ${processedCount}件`
+        : `Gmailゴミ箱移動完了: ${processedCount}件`);
       console.info("Gmail block/delete result", result);
-      if (elements.trashExistingMail.checked && trashedCount === 0) {
-        showToast("Gmail処理は完了しましたが、移動対象の既存メールは0件でした");
+      if (processedCount === 0) {
+        showToast("Gmail処理は完了しましたが、対象の既存メールは0件でした");
       } else if (details) {
-        showToast(`Gmailゴミ箱移動: ${details}`);
+        showToast(`Gmail処理: ${details}`);
       }
     } catch (error) {
       elements.confirmUnsubscribe.disabled = false;

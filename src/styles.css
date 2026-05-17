@@ -1,16 +1,16 @@
 :root {
   color-scheme: light;
-  --bg: #f6f7f9;
-  --panel: #ffffff;
-  --ink: #17202a;
-  --muted: #667085;
-  --line: #d9dee7;
-  --blue: #22577a;
-  --green: #2d936c;
-  --amber: #b7791f;
-  --red: #c24136;
-  --shadow: 0 12px 30px rgba(28, 39, 55, 0.08);
-  font-family: Inter, "Hiragino Sans", "Yu Gothic UI", "Yu Gothic", Meiryo, sans-serif;
+  --bg: #f6f6ef;
+  --panel: #fffff6;
+  --ink: #222;
+  --muted: #666;
+  --line: #e2dfcf;
+  --orange: #ff6600;
+  --orange-dark: #c94f00;
+  --red: #c23b22;
+  --green: #22863a;
+  --blue: #305080;
+  font-family: Verdana, Geneva, sans-serif;
 }
 
 * {
@@ -25,6 +25,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--ink);
+  font-size: 14px;
 }
 
 button,
@@ -34,128 +35,161 @@ input {
 }
 
 .app-shell {
-  display: grid;
-  grid-template-columns: 260px minmax(0, 1fr);
+  width: min(1380px, 100%);
   min-height: 100vh;
+  margin: 0 auto;
+  background: var(--bg);
 }
 
 .sidebar {
   position: sticky;
   top: 0;
-  height: 100vh;
-  padding: 24px;
-  background: #111827;
-  color: #fff;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 34px;
+  padding: 4px 8px;
+  background: var(--orange);
+  color: #000;
+  border-bottom: 1px solid var(--orange-dark);
 }
 
 .brand {
   display: flex;
-  gap: 12px;
   align-items: center;
-  margin-bottom: 36px;
+  gap: 6px;
+  min-width: max-content;
 }
 
 .brand-mark {
   display: grid;
   place-items: center;
-  width: 42px;
-  height: 42px;
-  border-radius: 8px;
-  background: #38a3a5;
-  font-weight: 800;
+  width: 20px;
+  height: 20px;
+  border: 1px solid #fff;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .brand strong,
 .brand span {
-  display: block;
+  display: inline;
 }
 
-.brand span {
-  color: #b8c2d4;
+.brand strong {
   font-size: 13px;
 }
 
+.brand span {
+  display: none;
+}
+
 .nav-list {
-  display: grid;
-  gap: 8px;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-wrap: wrap;
 }
 
 .nav-list a {
-  color: #dbe4f0;
+  color: #000;
   text-decoration: none;
-  padding: 10px 12px;
-  border-radius: 8px;
+  font-size: 13px;
+  padding: 0 7px;
+  border-left: 1px solid rgba(0, 0, 0, 0.35);
+}
+
+.nav-list a:first-child {
+  border-left: 0;
 }
 
 .nav-list a.active,
 .nav-list a:hover {
-  background: rgba(255, 255, 255, 0.11);
-  color: #fff;
+  text-decoration: underline;
 }
 
 .main {
-  padding: 32px;
+  padding: 12px 8px 32px;
   display: grid;
-  gap: 24px;
+  gap: 12px;
 }
 
 .topbar,
 .section-heading {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
-}
-
-.topbar-actions {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  gap: 12px;
 }
 
 .topbar h1,
 .section h2 {
   margin: 0;
+  font-size: 22px;
+  line-height: 1.25;
+}
+
+.topbar-actions,
+.controls {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .eyebrow {
-  margin: 0 0 6px;
+  margin: 0 0 3px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0;
   text-transform: uppercase;
 }
 
-.button {
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--panel);
-  color: var(--ink);
-  padding: 10px 14px;
-  cursor: pointer;
-  min-height: 42px;
+.section-description,
+.gmail-panel p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  line-height: 1.5;
 }
 
-.button:hover {
-  border-color: #9aa7b6;
+.button,
+.row-actions button,
+.icon-button {
+  border: 1px solid #b8b29c;
+  border-radius: 2px;
+  background: #fffdf0;
+  color: var(--ink);
+  padding: 6px 9px;
+  cursor: pointer;
+  min-height: 30px;
+}
+
+.button:hover,
+.row-actions button:hover,
+.icon-button:hover {
+  background: #fff4d5;
 }
 
 .button.primary {
-  background: var(--blue);
-  border-color: var(--blue);
-  color: #fff;
+  background: var(--orange);
+  border-color: var(--orange-dark);
+  color: #000;
 }
 
-.button.subtle {
+.button.subtle,
+.row-actions button.unsubscribe {
   color: var(--red);
 }
 
 .summary-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
+  gap: 1px;
+  border: 1px solid var(--line);
+  background: var(--line);
 }
 
 .metric,
@@ -163,24 +197,24 @@ input {
 .insight-panel {
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 8px;
-  box-shadow: var(--shadow);
 }
 
 .metric {
-  padding: 18px;
+  padding: 10px;
+  border: 0;
 }
 
 .metric span,
 .insight-panel span {
   display: block;
   color: var(--muted);
-  font-size: 13px;
-  margin-bottom: 8px;
+  font-size: 11px;
+  margin-bottom: 4px;
 }
 
-.metric strong {
-  font-size: 34px;
+.metric strong,
+.insight-panel strong {
+  font-size: 24px;
 }
 
 .metric.danger strong {
@@ -188,43 +222,38 @@ input {
 }
 
 .section {
-  padding: 22px;
+  padding: 12px;
 }
 
 .gmail-panel {
   display: flex;
   justify-content: space-between;
-  gap: 18px;
+  gap: 12px;
   align-items: flex-start;
 }
 
-.gmail-panel p {
-  color: var(--muted);
-  margin: 0;
-}
-
 .gmail-panel code {
-  max-width: 460px;
+  max-width: 520px;
   overflow-wrap: anywhere;
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #f9fafb;
-  color: #344054;
-  padding: 10px 12px;
+  background: #fff;
+  color: #333;
+  padding: 6px 8px;
+  font-size: 12px;
 }
 
 .account-grid {
-  margin-top: 16px;
+  margin-top: 10px;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  gap: 1px;
+  border: 1px solid var(--line);
+  background: var(--line);
 }
 
 .account-card {
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 14px;
-  background: #fbfcfe;
+  padding: 10px;
+  background: #fffdf0;
 }
 
 .account-card strong,
@@ -234,41 +263,33 @@ input {
 
 .account-card span {
   color: var(--muted);
-  font-size: 13px;
-  margin-top: 6px;
-}
-
-.controls {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
+  font-size: 12px;
+  margin-top: 5px;
 }
 
 select {
-  min-height: 40px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #fff;
-  padding: 0 10px;
+  min-height: 30px;
+  border: 1px solid #b8b29c;
+  border-radius: 2px;
+  background: #fffdf0;
+  padding: 0 8px;
 }
 
-.table-wrap {
+.subscription-list-wrap {
+  margin-top: 10px;
   overflow-x: auto;
-  margin-top: 16px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  border-top: 1px solid var(--line);
 }
 
 table {
   border-collapse: collapse;
   width: 100%;
-  min-width: 920px;
-  background: #fff;
+  min-width: 980px;
 }
 
 th,
 td {
-  padding: 12px 14px;
+  padding: 8px 8px;
   text-align: left;
   border-bottom: 1px solid var(--line);
   vertical-align: middle;
@@ -276,56 +297,23 @@ td {
 
 th {
   color: var(--muted);
-  font-size: 13px;
-  background: #f9fafb;
+  font-size: 12px;
+  background: #efeee0;
 }
 
-tr:last-child td {
-  border-bottom: 0;
+tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.45);
 }
 
-.sender {
-  display: grid;
-  gap: 4px;
-}
-
-.sender small {
-  color: var(--muted);
-}
-
-.account-cell {
-  color: var(--muted);
-  font-size: 13px;
-  line-height: 1.6;
-}
-
-.subscription-list-wrap {
-  margin-top: 16px;
-  overflow-x: auto;
-}
-
-.subscription-list-table {
-  min-width: 1080px;
-  border-collapse: separate;
-  border-spacing: 0;
-  background: transparent;
-}
-
-.subscription-list-table th,
-.subscription-list-table td {
-  border-bottom: 1px solid #edf0f5;
-  padding: 16px 12px;
-}
-
-.subscription-list-table th {
-  background: #fff;
+tr:hover td {
+  background: #fff4d5;
 }
 
 .sender-name-cell {
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-width: 310px;
+  gap: 8px;
+  min-width: 280px;
 }
 
 .sender-name-cell strong,
@@ -333,69 +321,49 @@ tr:last-child td {
   display: block;
 }
 
-.sender-name-cell small {
+.sender-name-cell small,
+.email-cell {
   color: var(--muted);
-  margin-top: 3px;
 }
 
 .sender-avatar {
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  background: #5b6fd6;
-  color: #fff;
-  font-size: 14px;
-  font-weight: 800;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--line);
+  background: #f0eee0;
+  color: var(--orange-dark);
+  font-size: 12px;
+  font-weight: 700;
   flex: 0 0 auto;
-}
-
-.email-cell {
-  color: #344054;
-  min-width: 260px;
 }
 
 .badge {
   display: inline-flex;
   align-items: center;
-  border-radius: 999px;
-  padding: 5px 9px;
-  font-size: 12px;
+  border: 1px solid var(--line);
+  padding: 2px 5px;
+  font-size: 11px;
   font-weight: 700;
-  background: #edf2f7;
+  background: #f0eee0;
 }
 
 .badge.high {
-  background: #fde8e6;
   color: var(--red);
 }
 
 .badge.medium {
-  background: #fff4db;
-  color: var(--amber);
+  color: var(--orange-dark);
 }
 
 .badge.low {
-  background: #e8f5ef;
   color: var(--green);
 }
 
 .row-actions {
   display: flex;
-  gap: 8px;
-}
-
-.row-actions button {
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #fff;
-  padding: 7px 10px;
-  cursor: pointer;
-}
-
-.row-actions button.unsubscribe {
-  color: var(--red);
+  gap: 6px;
 }
 
 .modal-backdrop {
@@ -404,8 +372,8 @@ tr:last-child td {
   z-index: 20;
   display: grid;
   place-items: center;
-  padding: 24px;
-  background: rgba(15, 23, 42, 0.46);
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.42);
 }
 
 .modal-backdrop[hidden] {
@@ -414,13 +382,11 @@ tr:last-child td {
 
 .modal {
   width: min(720px, 100%);
-  max-height: min(760px, calc(100vh - 48px));
+  max-height: min(760px, calc(100vh - 32px));
   overflow: auto;
-  background: var(--panel);
-  border-radius: 8px;
-  border: 1px solid var(--line);
-  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.28);
-  padding: 22px;
+  background: var(--bg);
+  border: 1px solid #000;
+  padding: 12px;
 }
 
 .modal-header,
@@ -428,7 +394,7 @@ tr:last-child td {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
 }
 
 .modal-header h2 {
@@ -436,61 +402,55 @@ tr:last-child td {
 }
 
 .icon-button {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #fff;
-  color: var(--muted);
-  cursor: pointer;
-  font-size: 22px;
-  line-height: 1;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  font-size: 18px;
 }
 
 .modal-summary {
   color: var(--muted);
-  line-height: 1.7;
+  line-height: 1.6;
 }
 
 .target-list {
   display: grid;
-  gap: 10px;
-  margin: 16px 0;
+  gap: 8px;
+  margin: 12px 0;
 }
 
 .execution-options {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #f9fafb;
-  padding: 12px;
-  margin-top: 14px;
+  background: #fffdf0;
+  padding: 10px;
+  margin-top: 10px;
+}
+
+.execution-options legend {
+  font-weight: 700;
 }
 
 .execution-options label {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   align-items: flex-start;
-  color: #344054;
   line-height: 1.5;
 }
 
 .target-option {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  gap: 12px;
+  gap: 8px;
   align-items: start;
   border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 12px;
-  background: #fbfcfe;
+  padding: 8px;
+  background: #fffdf0;
 }
 
 .target-option input {
-  margin-top: 5px;
+  margin-top: 4px;
 }
 
 .target-option strong,
@@ -499,71 +459,65 @@ tr:last-child td {
   display: block;
 }
 
-.target-option span {
+.target-option span,
+.target-option small {
   color: var(--muted);
   margin-top: 3px;
 }
 
 .target-option small {
-  color: var(--muted);
-  margin-top: 8px;
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
 
 .modal-note {
-  border: 1px solid #fed7aa;
-  border-radius: 8px;
-  background: #fff7ed;
-  color: #9a3412;
+  border-left: 3px solid var(--orange);
+  background: #fffdf0;
+  color: #5c3b00;
   line-height: 1.6;
-  padding: 12px;
-  margin: 12px 0 18px;
+  padding: 8px 10px;
+  margin: 10px 0 14px;
 }
 
 .danger-button {
-  background: var(--red);
-  border-color: var(--red);
+  color: var(--red);
+  font-weight: 700;
 }
 
 .report-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 260px;
-  gap: 18px;
+  grid-template-columns: minmax(0, 1fr) 220px;
+  gap: 12px;
 }
 
 .bars {
   display: grid;
-  gap: 12px;
-  margin-top: 16px;
+  gap: 8px;
+  margin-top: 10px;
 }
 
 .bar-row {
   display: grid;
-  grid-template-columns: 130px minmax(0, 1fr) 48px;
-  gap: 12px;
+  grid-template-columns: 130px minmax(0, 1fr) 44px;
+  gap: 8px;
   align-items: center;
 }
 
 .bar-track {
-  height: 12px;
-  border-radius: 999px;
-  background: #eef1f6;
+  height: 10px;
+  border: 1px solid var(--line);
+  background: #fffdf0;
   overflow: hidden;
 }
 
 .bar-fill {
+  display: block;
   height: 100%;
-  background: var(--green);
+  background: var(--orange);
 }
 
 .insight-panel {
-  padding: 18px;
-}
-
-.insight-panel strong {
-  display: block;
-  font-size: 32px;
+  padding: 12px;
 }
 
 .insight-panel p {
@@ -573,28 +527,27 @@ tr:last-child td {
 .settings-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 18px;
-  margin-top: 16px;
+  gap: 12px;
+  margin-top: 10px;
 }
 
 .settings-grid label {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   color: var(--muted);
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .toast {
   position: fixed;
-  right: 24px;
-  bottom: 24px;
-  background: #111827;
+  right: 16px;
+  bottom: 16px;
+  background: #222;
   color: #fff;
-  padding: 12px 14px;
-  border-radius: 8px;
-  box-shadow: var(--shadow);
+  padding: 9px 11px;
+  border: 1px solid #000;
   opacity: 0;
-  transform: translateY(10px);
+  transform: translateY(8px);
   transition: opacity 160ms ease, transform 160ms ease;
   pointer-events: none;
 }
@@ -605,13 +558,12 @@ tr:last-child td {
 }
 
 @media (max-width: 980px) {
-  .app-shell {
-    grid-template-columns: 1fr;
-  }
-
-  .sidebar {
-    position: static;
-    height: auto;
+  .sidebar,
+  .topbar,
+  .section-heading,
+  .gmail-panel {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .summary-grid,
@@ -624,15 +576,7 @@ tr:last-child td {
 
 @media (max-width: 640px) {
   .main {
-    padding: 20px;
-  }
-
-  .topbar,
-  .section-heading,
-  .modal-header,
-  .modal-actions {
-    align-items: flex-start;
-    flex-direction: column;
+    padding: 8px 4px 24px;
   }
 
   .summary-grid,
@@ -647,9 +591,5 @@ tr:last-child td {
   .controls,
   .controls select {
     width: 100%;
-  }
-
-  .gmail-panel {
-    flex-direction: column;
   }
 }
